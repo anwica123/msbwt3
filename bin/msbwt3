@@ -1,0 +1,6 @@
+#!/usr/bin/python3
+
+from MUSCython import CommandLineInterface
+
+if __name__ == '__main__':
+	CommandLineInterface.mainRun()

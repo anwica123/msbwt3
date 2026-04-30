@@ -1,0 +1,135 @@
+Introduction
+============
+
+MSBWT is a package for combining strings from sequencing into a data structure known as the multi-string BWT (MSBWT).  
+This structure allows for querying a k-mer in O(k) time regardless of how many strings are present in the MSBWT.  This
+particular package was created originally for merging MSBWTs after creation.  In short, this allows for multiple data
+sets to be combined into a single structure which allows for queries over both data sets simultaneously.
+
+Included in this package are implementations of MSBWT creation algorithms as described by Bauer et al. in "Lightweight
+BWT construction for very large string collections" for different file types.  Furthermore, the algorithm for merging
+these MSBWTs from Holt and McMillan in "Merging of Multi-String BWTs with Applications" is also implemented.
+
+Currently, some rudimentary query utilities are also in place on the command line interface.  However, we recommend to 
+anyone wishing to perform some dynamic/interactive queries to use the API provided by the source code.
+
+For detailed usage, please type after installation:
+
+	msbwt3 -h
+
+Wiki Pages
+==========
+
+Wiki pages for common use cases of the MSBWT can be found on our github page: https://github.com/holtjma/msbwt/wiki
+
+References
+==========
+
+Holt, James, and Leonard McMillan. "Merging of multi-string BWTs with applications." Bioinformatics (2014): btu584.
+
+Holt, James, and Leonard McMillan. "Constructing burrows-wheeler transforms of large string collections via merging." 
+Proceedings of the 5th ACM Conference on Bioinformatics, Computational Biology, and Health Informatics. ACM, 2014.
+
+
+Installation
+============
+
+It is recommended to install this package using pip from source.
+
+	Step 1: Install dependencies
+	pip install cython pysam
+	
+	Step 2: Clone the repository
+	git clone https://github.com/anwica123/msbwt3.git && cd msbwt3
+	
+	Step 3: Install the package
+	pip install .
+
+
+Install ropebwt for building MSBWT from short-read FASTQ data
+================================================================
+
+This tool is recommended for building the msBWT from short-read sequencing data.
+
+	Step 1: Clone and compile
+	git clone https://github.com/lh3/ropebwt2.git
+	cd ropebwt2
+	make
+	
+	Step 2: Add to PATH (if needed). If ropebwt2 is not found after compilation, add it to your PATH:
+
+	export PATH="/full/path/to/ropebwt2:$PATH"
+
+	You may add this line to your ~/.zshrc or ~/.bashrc to make it permanent.
+
+Build MSBWT 
+============
+
+The pipeline accepts a directory containing .fastq.gz files.
+
+	Step 1: Run the build script
+	bash build_bwt.sh <READ_DIR> <OUTPUT_DIR>
+
+	Where:
+
+	<READ_DIR> = directory containing input fastq.gz files
+	<OUTPUT_DIR> = directory where the MSBWT output will be stored
+	
+	Example: bash ./scripts/build_bwt.sh ./data/small_fastq /data/test1 
+	This will create a new folder called "test1" and put the compressed BWT file comp_msbwt.npy there.
+
+Detailed Description
+======================
+
+The msbwt package is primarily focused on creation, merging, and querying of MSBWTs.  To perform a query, several
+data structures are useful and stored with the MSBWT.  To handle this, each MSBWT is grouped into a directory which
+contains standardized filenames.  Here is the description of what each file contains:
+
+ * seqs.npy - Contains the raw input strings in a sorted, numerical format. It can be safely deleted after msbwt.npy has been fully instantiated.
+ * offsets.npy - Contains meta-data regarding seq.npy.  For strings of uniform length, this file is very small. If strings have variable size, it will be O(S) where S is the number of strings.  This file can be safely deleted after msbwt.npy has been fully instantiated.
+ * about.npy - Contains information regarding the origin of the sorted strings to be stored in the MSBWT.  For example, if multiple FASTQ files are used for input, this file includes both the source file and which read it was in that file.  For paired end reads, this can be useful for finding mates. If deleted, this file is NOT recoverable from msbwt.npy.
+ * msbwt.npy - Contains the full, uncompressed MSBWT.  Each symbol in the MSBWT takes one byte of space.  If deleted, the MSBWT is NOT recoverable except from comp_msbwt.npy.
+ * fmIndex.npy - Contains a sampled FM-index for msbwt.npy.  This is derived from msbwt.npy and must be created for any queries to work.  If deleted, the file will be automatically re-created if a query is performed on the data set.
+ * comp\_msbwt.npy - Contains the compressed MSBWT.  Each byte contains 3 bits for the symbol and 5 bits for a count. Each run is compressed into a symbol/length pairs and lengths too big for 5 bits expanded to multiple bytes such that one byte contains lengths < 32, two bytes < 32^2, three bytes < 32^3, and so on for as many bytes are necessary to store the run length.  If deleted, this file is NOT recoverable except from msbwt.npy.
+ * comp\_fmIndex.npy	- Contains a sampled FM-index for comp\_msbwt.npy.  This is derived from comp\_msbwt.npy and must be created for any queries to work.  If deleted, this file will be automatically re-created if a query is performed on the data set.
+ * comp\_refIndex.npy - Contains offset information for the sample FM-index.  This is derived from com\p_msbwt.npy and must be created for any queries to work.  If deleted, this file will be automatically re-created if a query if performed on the data set.
+
+The msbwt package is broken down into various sub-functions which include MSBWT creation, merging, and querying.  Below is a
+list of each along with the expected output.
+
+ * query - This function is for performing a single query of a specific k-mer within the data.  Options exist for dumping the associated strings containing that k-mer as well.
+ * massquery - This function takes a list of queries in a line separated file and performs those searches storing counts for each query in a CSV file.
+ * compress - This function takes an uncompressed MSBWT and converts it to the compressed version.  The auxiliary FM-index will need to be reconstructed for the new data format.
+ * decompress - This function takes a compressed MSBWT and converts it back into its original uncompressed format. The auxiliary FM-index will need to be reconstructed for this format.
+ * convert - This function converted a raw text input BWT to our run-length encoded version.
+
+
+Some command line utilities are available as well:
+
+	1. For a single kmer query:
+
+	msbwt3 query /path/to/the/msbwt/directory kmer
+
+	example command:
+	msbwt3 query data/small_bwt "CAT"
+	
+	2. For massquery (query a list of kmers in a single msbwt):
+	msbwt3 massquery /path/to/the/msbwt/directory /path/to/the/list/of/kmer /path/to/the/output/file
+
+	msbwt3 massquery data/small_bwt data/kmers.csv data/output.csv
+	
+The latest release also includes installation of the Cython library used to load the MSBWTs and perform merges.  After 
+installation, the libraries are available through regular Python imports like so:
+
+	import MUSCython.MultiStringBWTCython as MultiStringBWT
+	msbwt = MultiStringBWT.loadBWT('/path/to/directory')
+	kmer  = 'CAT'
+	msbwt.countOccurrencesOfSeq(kmer.encode())
+	
+Some other Python API-based functions are available in the scripts folder. For further details, please refer to the source code at https://github.com/holtjma/msbwt.
+
+References
+==========
+Holt, James, and Leonard McMillan. "Merging of multi-string BWTs with applications." *Bioinformatics* (2014): btu584.
+
+Holt, James, and Leonard McMillan. "Constructing Burrows-Wheeler transforms of large string collections via merging." *Proceedings of the 5th ACM Conference on Bioinformatics, Computational Biology, and Health Informatics.* ACM, 2014.
