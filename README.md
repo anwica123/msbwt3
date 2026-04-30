@@ -37,7 +37,7 @@ Installation
 It is recommended to install this package using pip from source.
 
 	Step 1: Install dependencies
-	pip install cython pysam
+	pip install numpy cython pysam
 	
 	Step 2: Clone the repository
 	git clone https://github.com/anwica123/msbwt3.git && cd msbwt3
